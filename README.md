@@ -20,7 +20,8 @@
 - удалить часть файлов
 - восстановится со снапшота
 - залоггировать работу можно с помощью утилиты script
-* Начало ДЗ *
+**Начало ДЗ**
+```
 C:\Vagrant\otuslinux\otus-linux>vagrant ssh
 Last login: Tue Aug 11 16:55:39 2020 from 10.0.2.2
 [vagrant@otuslinux ~]$ lsblk
@@ -56,3 +57,5 @@ sde         8:64   0    250M  0 disk
   ├─md0p3 259:2    0    100M  0 md
   ├─md0p4 259:3    0     99M  0 md
   └─md0p5 259:4    0     98M  0 md
+  ```
+  

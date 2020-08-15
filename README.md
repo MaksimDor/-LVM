@@ -1,6 +1,6 @@
 # HomeWork-LVM
 ДЗ. Работа с LVM
-На имеĀщемсā образе centos/7 - v. 1804.2
+На имеющемся образе centos/7 - v. 1804.2
 уменьшить том под / до 8G
 
 выделить том под /home
@@ -74,4 +74,28 @@ sde                       8:64   0    1G  0 disk
   Alloc PE / Size       2047 / <8.00 GiB
   Free  PE / Size       512 / 2.00 GiB
   VG UUID               oYJ0bP-pR77-1L8a-NDHV-nRcz-80UK-judjjo
+   ```
+Детальную информацию о LV получим командой:
+
+```
+lvdisplay /dev/otus/test
+  ```
+ ```
+[vagrant@lvm ~]$ sudo lvdisplay /dev/otus/test
+  --- Logical volume ---
+  LV Path                /dev/otus/test
+  LV Name                test
+  VG Name                otus
+  LV UUID                TdtVXm-3x37-EWZb-t1S4-AHPF-7BOs-w03381
+  LV Write Access        read/write
+  LV Creation host, time lvm, 2020-08-15 12:38:08 +0000
+  LV Status              available
+  # open                 0
+  LV Size                <8.00 GiB
+  Current LE             2047
+  Segments               1
+  Allocation             inherit
+  Read ahead sectors     auto
+  - currently set to     8192
+  Block device           253:2
    ```

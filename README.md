@@ -1,5 +1,7 @@
 # HomeWork-LVM
+
 ДЗ. Работа с LVM
+
 На имеющемся образе centos/7 - v. 1804.2
 
 -уменьшить том под / до 8G
@@ -14,7 +16,7 @@
 
 -прописать монтирование в fstab
 
-Попробоватþ с разными опциями и разными файловýми системами ( на выбор)
+Попробовать с разными опциями и разными файловýми системами ( на выбор)
 
 Работа со снапшотами:
 - сгенерить файлы в /home/
@@ -22,6 +24,11 @@
 - удалить часть файлов
 - восстановится со снапшота
 - залоггировать работу можно с помощью утилиты script
+
+Уменьшить том под / до 8G
+Эту часть можно выполнить разными способами, мы будем
+уменьшать / до 8G без исполþзованиā LiveCD.
+Перед началом работы поставим пакет xfsdump - он будет необходим для снятия копии тома.
 
 **Начало ДЗ**
 
@@ -42,115 +49,276 @@ sdc                       8:32   0    2G  0 disk
 sdd                       8:48   0    1G  0 disk
 sde                       8:64   0    1G  0 disk
   ```
-  1. разметим диск для будущего использования LVM - создадим PV 
-  - создавать первый уровень абстракции - VG
-  - создадим Logical Volume
+  **Установим nano xfsdump**
   ```
-[vagrant@lvm ~]$ sudo pvcreate /dev/sdb
-  Physical volume "/dev/sdb" successfully created.
-[vagrant@lvm ~]$ sudo vgcreate otus /dev/sdb
-  Volume group "otus" successfully created
-[vagrant@lvm ~]$ sudo lvcreate -l+80%FREE -n test otus
-  Logical volume "test" created.
-```
- Посмотрим информацию о только что созданном Volume Group
+  [vagrant@lvm ~]$ sudo yum install nano xfsdump  
+  ```
+  посмотрим /etc/fstab
+  ```
+ [vagrant@lvm ~]$ sudo nano /etc/fstab  
+  ```
  ```
-[vagrant@lvm ~]$ sudo vgdisplay otus
-  --- Volume group ---
-  VG Name               otus
-  System ID
-  Format                lvm2
-  Metadata Areas        1
-  Metadata Sequence No  2
-  VG Access             read/write
-  VG Status             resizable
-  MAX LV                0
-  Cur LV                1
-  Open LV               0
-  Max PV                0
-  Cur PV                1
-  Act PV                1
-  VG Size               <10.00 GiB
-  PE Size               4.00 MiB
-  Total PE              2559
-  Alloc PE / Size       2047 / <8.00 GiB
-  Free  PE / Size       512 / 2.00 GiB
-  VG UUID               oYJ0bP-pR77-1L8a-NDHV-nRcz-80UK-judjjo
-   ```
-Детальную информацию о LV получим командой:
+#
+# /etc/fstab
+# Created by anaconda on Sat May 12 18:50:26 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/VolGroup00-LogVol00 /                       xfs     defaults        0 0
+UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaults        0 0
+/dev/mapper/VolGroup00-LogVol01 swap                    swap    defaults        0 0
+  ```
+**Подготовим временный том для / раздела:**
+
+
+1) pvcreate /dev/sdb
+2) vgcreate vg_root /dev/sdb
+3) lvcreate -n lv_root -l +100%FREE /dev/vg_root
+
+
+**Создадим на нем файловую систему и смонтируем его, чтобы перенести туда данные:**
 
 ```
-lvdisplay /dev/otus/test
-  ```
+[vagrant@lvm ~]$ sudo mkfs.xfs /dev/vg_root/lv_root
+[vagrant@lvm ~]$ sudo mount /dev/vg_root/lv_root /mnt
+```
+
+*Скопируем все данные с / раздела в /mnt:
  ```
-[vagrant@lvm ~]$ sudo lvdisplay /dev/otus/test
-  --- Logical volume ---
-  LV Path                /dev/otus/test
-  LV Name                test
-  VG Name                otus
-  LV UUID                TdtVXm-3x37-EWZb-t1S4-AHPF-7BOs-w03381
-  LV Write Access        read/write
-  LV Creation host, time lvm, 2020-08-15 12:38:08 +0000
-  LV Status              available
-  # open                 0
-  LV Size                <8.00 GiB
-  Current LE             2047
-  Segments               1
-  Allocation             inherit
-  Read ahead sectors     auto
-  - currently set to     8192
-  Block device           253:2
-   ```
-   В сжатом виде информацию можно получить командами vgs и lvs:
+[vagrant@lvm ~]$ sudo xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
+ ```
  
-   ```
-   [vagrant@lvm ~]$ sudo vgs
-  VG         #PV #LV #SN Attr   VSize   VFree
-  VolGroup00   1   2   0 wz--n- <38.97g    0
-  otus         1   1   0 wz--n- <10.00g 2.00g
-[vagrant@lvm ~]$ sudo lvs
-  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
-  LogVol00 VolGroup00 -wi-ao---- <37.47g
-  LogVol01 VolGroup00 -wi-ao----   1.50g
-  test     otus       -wi-a-----  <8.00g
- ```   
-   Создадим еще один LV из свободного места. На этот раз создадим не экстентами, а абсолютным значением в мегабайтах:
+**Переконфигурируем grub для того, чтобы при старте перейти в новый /
+Сымитируем текущий root -> сделаем в него chroot и обновим grub:**
 
 ``` 
- [vagrant@lvm ~]$ sudo lvcreate -L100M -n small otus
-  Logical volume "small" created.
-[vagrant@lvm ~]$ sudo lvs
-  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
-  LogVol00 VolGroup00 -wi-ao---- <37.47g
-  LogVol01 VolGroup00 -wi-ao----   1.50g
-  small    otus       -wi-a----- 100.00m
-  test     otus       -wi-a-----  <8.00g
-   ``` 
-   Создадим на LV файловую систему и смонтируем его
-   
-   ```
-   [vagrant@lvm ~]$ sudo mkfs.ext4 /dev/otus/test
-mke2fs 1.42.9 (28-Dec-2013)
-Filesystem label=
-OS type: Linux
-Block size=4096 (log=2)
-Fragment size=4096 (log=2)
-Stride=0 blocks, Stripe width=0 blocks
-524288 inodes, 2096128 blocks
-104806 blocks (5.00%) reserved for the super user
-First data block=0
-Maximum filesystem blocks=2147483648
-64 block groups
-32768 blocks per group, 32768 fragments per group
-8192 inodes per group
-Superblock backups stored on blocks:
-        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632
+[vagrant@lvm ~]$ sudo for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
+[vagrant@lvm ~]$ sudo chroot /mnt/
+[vagrant@lvm ~]$ sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+```
 
-Allocating group tables: done
-Writing inode tables: done
-Creating journal (32768 blocks): done
-Writing superblocks and filesystem accounting information: done
-  
-   ``` 
-   
-    
+**Обновим образ initrd:**
+
+```
+[vagrant@lvm ~]$ sudo cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
+```
+
+Чтобы при загрузке был смонтирован нужный root нужно в файле /boot/grub2/grub.cfg заменить rd.lvm.lv=VolGroup00/LogVol00 на rd.lvm.lv=vg_root/lv_root
+
+Меняем в файле /etc/fstab монтирование корня и приводим его к виду:
+
+```
+ [vagrant@lvm ~]$ sudo nano /etc/fstab  
+  ```
+```
+#
+# /etc/fstab
+# Created by anaconda on Sat May 12 18:50:26 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+#/dev/mapper/VolGroup00-LogVol00 /                       xfs     defaults        0 0
+/dev/mapper/vg_root-lv_root /                       xfs     defaults        0 0
+UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaults        0 0
+/dev/mapper/VolGroup00-LogVol01 swap                    swap    defaults        0 0
+
+```
+**Перезагружаемся успешно с новым рут томом. 
+смотрим командой lsblk**
+
+```
+[vagrant@lvm ~]$ sudo lsblk
+
+NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                       8:0    0   40G  0 disk
+├─sda1                    8:1    0    1M  0 part
+├─sda2                    8:2    0    1G  0 part /boot
+└─sda3                    8:3    0   39G  0 part
+  ├─VolGroup00-LogVol01 253:1    0  1.5G  0 lvm  [SWAP]
+  └─VolGroup00-LogVol00 253:2    0 37.5G  0 lvm
+sdb                       8:16   0   10G  0 disk
+└─vg_root-lv_root       253:0    0   10G  0 lvm  /
+sdc                       8:32   0    2G  0 disk
+sdd                       8:48   0    1G  0 disk
+sde                       8:64   0    1G  0 disk
+```
+*Теперь нам нужно изменить размер старой VG и вернуть на него рут. Для этого удаляем
+старый LV размеров в 40G и создаем новый на 8G:*
+
+```
+[vagrant@lvm ~]$ sudo lvremove /dev/VolGroup00/LogVol00
+
+[vagrant@lvm ~]$ sudo lvcreate -n VolGroup00/LogVol00 -L 8G /dev/VolGroup00
+```
+
+**Проделываем на нем те же операции, что и в первый раз:**
+```
+[vagrant@lvm ~]$ sudo mkfs.xfs /dev/VolGroup00/LogVol00
+[vagrant@lvm ~]$ sudo mount /dev/VolGroup00/LogVol00 /mnt
+[vagrant@lvm ~]$ sudo xfsdump -J - /dev/vg_root/lv_root | xfsrestore -J - /mnt
+```
+*Так же как в первый раз переконфигурируем grub, за исключением правки /etc/grub2/grub.cfg:*
+
+```
+[vagrant@lvm ~]$ sudo for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
+[vagrant@lvm ~]$ sudo chroot /mnt/
+[vagrant@lvm ~]$ sudo grub2-mkconfig -o /boot/grub2/grub.cfg
+[vagrant@lvm ~]$ sudo cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
+```
+
+*Пока не перезагружаемся и не выходим из под chroot - мы можем заодно перенести /var*
+
+На свободных дисках создаем зеркало:
+```
+[vagrant@lvm ~]$ sudo pvcreate /dev/sdc /dev/sdd
+[vagrant@lvm ~]$ sudo vgcreate vg_var /dev/sdc /dev/sdd
+[vagrant@lvm ~]$ sudo lvcreate -L 950M -m1 -n lv_var vg_var
+```
+
+Создаем на нем ФС и перемещаем туда /var:
+
+```
+[vagrant@lvm ~]$ sudo mkfs.ext4 /dev/vg_var/lv_var
+[vagrant@lvm ~]$ sudo mount /dev/vg_var/lv_var /mnt
+[vagrant@lvm ~]$ sudo cp -aR /var/* /mnt/ (или rsync -avHPSAX /var/ /mnt/)
+```
+
+На всякий случай сохраняем содержимое старого var (или же можно его просто удалить):
+```
+[vagrant@lvm ~]$ sudo mkdir /tmp/oldvar && mv /var/* /tmp/oldvar
+```
+
+Монтируем новый var в каталог /var:
+
+```
+[vagrant@lvm ~]$ sudo umount /mnt
+[vagrant@lvm ~]$ sudo mount /dev/vg_var/lv_var /var
+```
+
+Правим fstab для автоматического монтирования /var:
+
+```
+[vagrant@lvm ~]$ sudo echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
+```
+
+**Исправляем файл /etc/fstab :**
+
+```
+ [vagrant@lvm ~]$ sudo nano /etc/fstab  
+  ```
+ ```
+#
+# /etc/fstab
+# Created by anaconda on Sat May 12 18:50:26 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/VolGroup00-LogVol00 /                       xfs     defaults        0 0
+#/dev/mapper/vg_root-lv_root /                       xfs     defaults        0 0
+UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaults        0 0
+/dev/mapper/VolGroup00-LogVol01 swap                    swap    defaults        0 0
+  ```
+
+*После чего можно успешно перезагружаться в новый (уменьшенный root) и удалять временную Volume Group:*
+
+```
+[vagrant@lvm ~]$ sudo lvremove /dev/vg_root/lv_root
+[vagrant@lvm ~]$ sudo vgremove /dev/vg_root
+[vagrant@lvm ~]$ sudo pvremove /dev/sdb
+```
+
+**Выделяем том под /home по тому же принципу что делали для /var:**
+
+```
+[vagrant@lvm ~]$ sudo lvcreate -n LogVol_Home -L 2G /dev/VolGroup00
+[vagrant@lvm ~]$ sudo mkfs.xfs /dev/VolGroup00/LogVol_Home
+[vagrant@lvm ~]$ sudo mount /dev/VolGroup00/LogVol_Home /mnt/
+[vagrant@lvm ~]$ sudo cp -aR /home/* /mnt/ 
+[vagrant@lvm ~]$ sudo rm -rf /home/*
+[vagrant@lvm ~]$ sudo umount /mnt
+[vagrant@lvm ~]$ sudo mount /dev/VolGroup00/LogVol_Home /home/
+```
+*Правим fstab длā автоматического монтирования /home:*
+
+```
+[vagrant@lvm ~]$ sudo echo "`blkid | grep Home | awk '{print $2}'` /home xfs defaults 0 0" >> /etc/fstab
+```
+
+**Для работы со снапшотами, сгенерируем файлы в /home/:**
+
+```
+[vagrant@lvm ~]$ sudo touch /home/file{1..20}
+```
+
+*Снять снапшот:*
+
+```
+[vagrant@lvm ~]$ sudo lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
+```
+
+*Удалить часть файлов:*
+
+```
+[vagrant@lvm ~]$ sudo rm -f /home/file{11..20}
+```
+
+*Процесс восстановления со снапшота:*
+
+
+```
+[vagrant@lvm ~]$ sudo umount /home
+[vagrant@lvm ~]$ sudo lvconvert --merge /dev/VolGroup00/home_snap 
+[vagrant@lvm ~]$ sudo mount /home
+```
+**Выполним команду sudo nano /etc/fstab**
+  ```
+ [vagrant@lvm ~]$ sudo nano /etc/fstab  
+ ```
+```
+#
+# /etc/fstab
+# Created by anaconda on Sat May 12 18:50:26 2018
+#
+# Accessible filesystems, by reference, are maintained under '/dev/disk'
+# See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+#
+/dev/mapper/VolGroup00-LogVol00 /                       xfs     defaults        0 0
+#/dev/mapper/vg_root-lv_root /                       xfs     defaults        0 0
+UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaults        0 0
+/dev/mapper/VolGroup00-LogVol01 swap                    swap    defaults        0 0
+UUID="b4d7f6cd-2a83-4c4c-973e-49cbb8bcfe4e" /var ext4 defaults 0 0
+UUID="a8a537c8-a800-4501-8e60-093280b96233" /home xfs defaults 0 0
+```
+
+**Выполним команду sudo lsblk**
+
+```
+[vagrant@lvm ~]$ sudo lsblk
+ ```
+  ```
+	NAME                       MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+	sda                          8:0    0   40G  0 disk
+	├─sda1                       8:1    0    1M  0 part
+	├─sda2                       8:2    0    1G  0 part /boot
+	└─sda3                       8:3    0   39G  0 part
+	  ├─VolGroup00-LogVol00    253:0    0    8G  0 lvm  /
+	  ├─VolGroup00-LogVol01    253:1    0  1.5G  0 lvm  [SWAP]
+	  └─VolGroup00-LogVol_Home 253:7    0    2G  0 lvm  /home
+	sdb                          8:16   0   10G  0 disk
+	sdc                          8:32   0    2G  0 disk
+	├─vg_var-lv_var_rmeta_0    253:2    0    4M  0 lvm
+	│ └─vg_var-lv_var          253:6    0  952M  0 lvm  /var
+	└─vg_var-lv_var_rimage_0   253:3    0  952M  0 lvm
+	  └─vg_var-lv_var          253:6    0  952M  0 lvm  /var
+	sdd                          8:48   0    1G  0 disk
+	├─vg_var-lv_var_rmeta_1    253:4    0    4M  0 lvm
+	│ └─vg_var-lv_var          253:6    0  952M  0 lvm  /var
+	└─vg_var-lv_var_rimage_1   253:5    0  952M  0 lvm
+	  └─vg_var-lv_var          253:6    0  952M  0 lvm  /var
+	sde                          8:64   0    1G  0 disk
+
+```
+

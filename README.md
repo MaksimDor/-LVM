@@ -53,7 +53,7 @@ sde                       8:64   0    1G  0 disk
   ```
   [vagrant@lvm ~]$ sudo yum install nano xfsdump  
   ```
-  посмотрим /etc/fstab
+  **посмотрим /etc/fstab**
   ```
  [vagrant@lvm ~]$ sudo nano /etc/fstab  
   ```
@@ -71,11 +71,11 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
   ```
 **Подготовим временный том для / раздела:**
 
-
-1) pvcreate /dev/sdb
-2) vgcreate vg_root /dev/sdb
-3) lvcreate -n lv_root -l +100%FREE /dev/vg_root
-
+```
+[vagrant@lvm ~]$ sudo pvcreate /dev/sdb
+[vagrant@lvm ~]$ sudo vgcreate vg_root /dev/sdb
+[vagrant@lvm ~]$ sudo lvcreate -n lv_root -l +100%FREE /dev/vg_root
+```
 
 **Создадим на нем файловую систему и смонтируем его, чтобы перенести туда данные:**
 
@@ -84,7 +84,7 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
 [vagrant@lvm ~]$ sudo mount /dev/vg_root/lv_root /mnt
 ```
 
-*Скопируем все данные с / раздела в /mnt:
+**Скопируем все данные с / раздела в /mnt:**
  ```
 [vagrant@lvm ~]$ sudo xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
  ```
@@ -104,9 +104,10 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
 [vagrant@lvm ~]$ sudo cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
 ```
 
-Чтобы при загрузке был смонтирован нужный root нужно в файле /boot/grub2/grub.cfg заменить rd.lvm.lv=VolGroup00/LogVol00 на rd.lvm.lv=vg_root/lv_root
+Чтобы при загрузке был смонтирован нужный root нужно в файле /boot/grub2/grub.cfg 
+заменить rd.lvm.lv=VolGroup00/LogVol00 на rd.lvm.lv=vg_root/lv_root
 
-Меняем в файле /etc/fstab монтирование корня и приводим его к виду:
+**Меняем в файле /etc/fstab монтирование корня и приводим его к виду:**
 
 ```
  [vagrant@lvm ~]$ sudo nano /etc/fstab  
@@ -144,8 +145,8 @@ sdc                       8:32   0    2G  0 disk
 sdd                       8:48   0    1G  0 disk
 sde                       8:64   0    1G  0 disk
 ```
-*Теперь нам нужно изменить размер старой VG и вернуть на него рут. Для этого удаляем
-старый LV размеров в 40G и создаем новый на 8G:*
+**Теперь нам нужно изменить размер старой VG и вернуть на него рут. Для этого удаляем
+старый LV размеров в 40G и создаем новый на 8G:**
 
 ```
 [vagrant@lvm ~]$ sudo lvremove /dev/VolGroup00/LogVol00
@@ -159,7 +160,7 @@ sde                       8:64   0    1G  0 disk
 [vagrant@lvm ~]$ sudo mount /dev/VolGroup00/LogVol00 /mnt
 [vagrant@lvm ~]$ sudo xfsdump -J - /dev/vg_root/lv_root | xfsrestore -J - /mnt
 ```
-*Так же как в первый раз переконфигурируем grub, за исключением правки /etc/grub2/grub.cfg:*
+**Так же как в первый раз переконфигурируем grub, за исключением правки /etc/grub2/grub.cfg:**
 
 ```
 [vagrant@lvm ~]$ sudo for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
@@ -168,16 +169,16 @@ sde                       8:64   0    1G  0 disk
 [vagrant@lvm ~]$ sudo cd /boot ; for i in `ls initramfs-*img`; do dracut -v $i `echo $i|sed "s/initramfs-//g; s/.img//g"` --force; done
 ```
 
-*Пока не перезагружаемся и не выходим из под chroot - мы можем заодно перенести /var*
+**Пока не перезагружаемся и не выходим из под chroot - мы можем заодно перенести /var**
 
-На свободных дисках создаем зеркало:
+**На свободных дисках создаем зеркало:**
 ```
 [vagrant@lvm ~]$ sudo pvcreate /dev/sdc /dev/sdd
 [vagrant@lvm ~]$ sudo vgcreate vg_var /dev/sdc /dev/sdd
 [vagrant@lvm ~]$ sudo lvcreate -L 950M -m1 -n lv_var vg_var
 ```
 
-Создаем на нем ФС и перемещаем туда /var:
+**Создаем на нем ФС и перемещаем туда /var:**
 
 ```
 [vagrant@lvm ~]$ sudo mkfs.ext4 /dev/vg_var/lv_var
@@ -185,19 +186,19 @@ sde                       8:64   0    1G  0 disk
 [vagrant@lvm ~]$ sudo cp -aR /var/* /mnt/ (или rsync -avHPSAX /var/ /mnt/)
 ```
 
-На всякий случай сохраняем содержимое старого var (или же можно его просто удалить):
+**На всякий случай сохраняем содержимое старого var (или же можно его просто удалить):**
 ```
 [vagrant@lvm ~]$ sudo mkdir /tmp/oldvar && mv /var/* /tmp/oldvar
 ```
 
-Монтируем новый var в каталог /var:
+**Монтируем новый var в каталог /var:**
 
 ```
 [vagrant@lvm ~]$ sudo umount /mnt
 [vagrant@lvm ~]$ sudo mount /dev/vg_var/lv_var /var
 ```
 
-Правим fstab для автоматического монтирования /var:
+**Правим fstab для автоматического монтирования /var:**
 
 ```
 [vagrant@lvm ~]$ sudo echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
@@ -222,7 +223,7 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
 /dev/mapper/VolGroup00-LogVol01 swap                    swap    defaults        0 0
   ```
 
-*После чего можно успешно перезагружаться в новый (уменьшенный root) и удалять временную Volume Group:*
+**После чего можно успешно перезагружаться в новый (уменьшенный root) и удалять временную Volume Group:**
 
 ```
 [vagrant@lvm ~]$ sudo lvremove /dev/vg_root/lv_root
@@ -241,7 +242,7 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
 [vagrant@lvm ~]$ sudo umount /mnt
 [vagrant@lvm ~]$ sudo mount /dev/VolGroup00/LogVol_Home /home/
 ```
-*Правим fstab длā автоматического монтирования /home:*
+**Правим fstab длā автоматического монтирования /home:**
 
 ```
 [vagrant@lvm ~]$ sudo echo "`blkid | grep Home | awk '{print $2}'` /home xfs defaults 0 0" >> /etc/fstab
@@ -253,19 +254,19 @@ UUID=570897ca-e759-4c81-90cf-389da6eee4cc /boot                   xfs     defaul
 [vagrant@lvm ~]$ sudo touch /home/file{1..20}
 ```
 
-*Снять снапшот:*
+**Снять снапшот:**
 
 ```
 [vagrant@lvm ~]$ sudo lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
 ```
 
-*Удалить часть файлов:*
+**Удалить часть файлов:**
 
 ```
 [vagrant@lvm ~]$ sudo rm -f /home/file{11..20}
 ```
 
-*Процесс восстановления со снапшота:*
+**Процесс восстановления со снапшота:**
 
 
 ```

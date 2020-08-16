@@ -1,4 +1,3 @@
-  
 # -*- mode: ruby -*-
 # vim: set ft=ruby :
 home = ENV['HOME']
@@ -11,22 +10,22 @@ MACHINES = {
         :ip_addr => '192.168.11.101',
     :disks => {
         :sata1 => {
-            :dfile => home + '/VirtualBox VMs/sata1.vdi',
+            :dfile => 'C:\Vagrant\Centos 7_8_LVM_DZ_3\sata1.vdi',
             :size => 10240,
             :port => 1
         },
         :sata2 => {
-            :dfile => home + '/VirtualBox VMs/sata2.vdi',
+            :dfile => 'C:\Vagrant\Centos 7_8_LVM_DZ_3\sata2.vdi',
             :size => 2048, # Megabytes
             :port => 2
         },
         :sata3 => {
-            :dfile => home + '/VirtualBox VMs/sata3.vdi',
+            :dfile => 'C:\Vagrant\Centos 7_8_LVM_DZ_3\sata3.vdi',
             :size => 1024, # Megabytes
             :port => 3
         },
         :sata4 => {
-            :dfile => home + '/VirtualBox VMs/sata4.vdi',
+            :dfile => 'C:\Vagrant\Centos 7_8_LVM_DZ_3\sata4.vdi',
             :size => 1024,
             :port => 4
         }
@@ -68,11 +67,9 @@ Vagrant.configure("2") do |config|
   
         box.vm.provision "shell", inline: <<-SHELL
             mkdir -p ~root/.ssh
-            cp ~vagrant/.ssh/auth* ~root/.ssh
             yum install -y mdadm smartmontools hdparm gdisk
           SHELL
   
         end
     end
-  end
-  
+  end  

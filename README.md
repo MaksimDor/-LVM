@@ -1,17 +1,19 @@
 # HomeWork-LVM
 ДЗ. Работа с LVM
 На имеющемся образе centos/7 - v. 1804.2
-уменьшить том под / до 8G
 
-выделить том под /home
+-уменьшить том под / до 8G
 
-выделить том под /var
+-выделить том под /home
 
-/var - сделать в mirror
+-выделить том под /var
 
-/home - сделать том для снэпшотов
+-/var - сделать в mirror
 
-прописать монтирование в fstab
+-/home - сделать том для снэпшотов
+
+-прописать монтирование в fstab
+
 Попробоватþ с разными опциями и разными файловýми системами ( на выбор)
 
 Работа со снапшотами:
@@ -99,3 +101,56 @@ lvdisplay /dev/otus/test
   - currently set to     8192
   Block device           253:2
    ```
+   В сжатом виде информацию можно получить командами vgs и lvs:
+ 
+   ```
+   [vagrant@lvm ~]$ sudo vgs
+  VG         #PV #LV #SN Attr   VSize   VFree
+  VolGroup00   1   2   0 wz--n- <38.97g    0
+  otus         1   1   0 wz--n- <10.00g 2.00g
+[vagrant@lvm ~]$ sudo lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  test     otus       -wi-a-----  <8.00g
+ ```   
+   Создадим еще один LV из свободного места. На этот раз создадим не экстентами, а абсолютным значением в мегабайтах:
+
+``` 
+ [vagrant@lvm ~]$ sudo lvcreate -L100M -n small otus
+  Logical volume "small" created.
+[vagrant@lvm ~]$ sudo lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  small    otus       -wi-a----- 100.00m
+  test     otus       -wi-a-----  <8.00g
+   ``` 
+   Создадим на LV файловую систему и смонтируем его
+   
+   ```
+   [vagrant@lvm ~]$ sudo mkfs.ext4 /dev/otus/test
+mke2fs 1.42.9 (28-Dec-2013)
+Filesystem label=
+OS type: Linux
+Block size=4096 (log=2)
+Fragment size=4096 (log=2)
+Stride=0 blocks, Stripe width=0 blocks
+524288 inodes, 2096128 blocks
+104806 blocks (5.00%) reserved for the super user
+First data block=0
+Maximum filesystem blocks=2147483648
+64 block groups
+32768 blocks per group, 32768 fragments per group
+8192 inodes per group
+Superblock backups stored on blocks:
+        32768, 98304, 163840, 229376, 294912, 819200, 884736, 1605632
+
+Allocating group tables: done
+Writing inode tables: done
+Creating journal (32768 blocks): done
+Writing superblocks and filesystem accounting information: done
+  
+   ``` 
+   
+    
